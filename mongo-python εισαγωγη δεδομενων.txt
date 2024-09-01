@@ -1,0 +1,133 @@
+#!pip install pymongo pandas
+
+import pymongo
+import json
+
+# Σύνδεση με την MongoDB
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client["assignment"]
+collection = db["assignment_collection"]
+
+
+files_list_path = "D:/redis/ergasia_redis/BIKES_DATASET/files_list.txt"
+try:
+    with open(files_list_path, 'r', encoding='utf-16') as file:
+        files_list = file.read().splitlines()
+except UnicodeDecodeError:
+    with open(files_list_path, 'r', encoding='cp1252') as file:
+        files_list = file.read().splitlines()
+
+# Εκτυπώστε τον αριθμό των διαδρομών αρχείων που βρέθηκαν για επιβεβαίωση
+print(f"Βρέθηκαν {len(files_list)} διαδρομές αρχείων.")
+__________________________________________________________________________________________
+
+
+import json
+import os
+
+# Βάση διαδρομής όπου βρίσκονται τα αρχεία JSON
+base_path = "D:/redis/ergasia_redis/BIKES_DATASET"
+
+# Αναγνώστης της λίστας διαδρομών αρχείων
+files_list_path = "D:/redis/ergasia_redis/BIKES_DATASET/files_list.txt"
+with open(files_list_path, 'r', encoding='utf-16') as file:  # Προσαρμόστε την κωδικοποίηση αν χρειάζεται
+    files_list = file.read().splitlines()
+
+# Διαδικασία φόρτωσης δεδομένων από κάθε αρχείο JSON
+for file_path in files_list:
+    full_path = os.path.join(base_path, file_path)  # Πλήρης διαδρομή του αρχείου
+    try:
+        with open(full_path, 'r', encoding='utf-8') as file:  # Άνοιγμα και ανάγνωση του αρχείου
+            data = json.load(file)
+            # Εδώ μπορείτε να κάνετε οτιδήποτε θέλετε με τα δεδομένα, π.χ. εκτύπωση
+            print(data)  # Εκτυπώνει τα δεδομένα JSON φορτωμένα στην Python
+    except Exception as e:
+        print(f"Σφάλμα κατά την επεξεργασία του αρχείου {full_path}: {e}")
+
+________________________________________________________________________________________________
+
+import json
+import os
+import re
+import pymongo
+
+# Σύνδεση με την MongoDB
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+db = client["assignment"]
+collection = db["assignment_collection"]
+
+# Βάση διαδρομής όπου βρίσκονται τα αρχεία JSON
+base_path = "D:/redis/ergasia_redis/BIKES_DATASET"
+
+# Αναγνώστης της λίστας διαδρομών αρχείων
+files_list_path = "D:/redis/ergasia_redis/BIKES_DATASET/files_list.txt"
+with open(files_list_path, 'r', encoding='utf-16') as file:
+    files_list = file.read().splitlines()
+
+cleaned_data = []  # Λίστα για την αποθήκευση των καθαρισμένων δεδομένων
+
+for file_path in files_list:
+    full_path = os.path.join(base_path, file_path)
+    try:
+        with open(full_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+            # Καθαρισμός τιμής
+            price = data["ad_data"].get("Price", "")
+            price = re.sub(r'[^\d]', '', price)  # Αφαίρεση μη αριθμητικών χαρακτήρων
+            price = int(price) if price else None  # Μετατροπή σε ακέραιο
+            if price is not None and price < 150:
+                price = "ask the price"
+            
+            # Καθαρισμός και προσθήκη Mileage
+            mileage = data["ad_data"].get("Mileage", "")
+            mileage = re.sub(r'[^\d]', '', mileage)  # Αφαίρεση μη αριθμητικών χαρακτήρων
+            mileage = int(mileage) if mileage else None  # Μετατροπή σε ακέραιο
+
+            # Καθαρισμός χρονολογίας εγγραφής
+            registration_year = data["ad_data"].get("Registration", "")
+            registration_year = re.findall(r'\d{4}', registration_year)
+            registration_year = int(registration_year[0]) if registration_year else None
+
+            # Προσθήκη χρώματος
+            color = data["ad_data"].get("Color", "").strip()
+
+            # Προσθήκη περιγραφής
+            description = data.get("description", "").strip()
+
+            # Μετατροπή extras από λίστα σε string για απλοποίηση
+            extras = ', '.join(data.get("extras", []))
+
+            # Προσθήκη brand
+            brand = data["metadata"].get("brand", "").strip()
+
+            cleaned_data.append({
+                "brand": brand,
+                "price": price,
+                "mileage": mileage,
+                "category": data["ad_data"].get("Category", ""),
+                "registration_year": registration_year,
+                "color": color,
+                "description": description,
+                "extras": extras
+            })
+    except Exception as e:
+        print(f"Σφάλμα κατά την επεξεργασία του αρχείου {full_path}: {e}")
+
+# Εκτυπώστε τα καθαρισμένα δεδομένα για να ελέγξετε
+for item in cleaned_data[:5]:  # Εκτυπώνουμε τις πρώτες 5 καταχωρήσεις για επισκόπηση
+    print(item)
+_________________________________________________________________________________________
+
+from pymongo import MongoClient
+
+# Σύνδεση με την MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+db = client["assignment"]  # Όνομα βάσης δεδομένων
+collection = db["assignment_collection"]  # Όνομα συλλογής
+
+# Εισαγωγή των καθαρισμένων δεδομένων στην MongoDB
+try:
+    collection.insert_many(cleaned_data)
+    print("Τα δεδομένα εισήχθησαν επιτυχώς.")
+except Exception as e:
+    print(f"Σφάλμα κατά την εισαγωγή δεδομένων: {e}")
